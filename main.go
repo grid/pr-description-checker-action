@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"fmt"
 
 	"github.com/google/go-github/v42/github"
 	"github.com/sethvargo/go-githubactions"
@@ -56,6 +57,43 @@ func fetchTemplate() (string, error) {
 	}
 
 	return string(data), nil
+}
+
+func splitByHeaders(markdown string) []map[string]string {
+	// Regular expression to match Markdown headers
+	re := regexp.MustCompile(`(?m)^(#{1,6}) (.+)$`)
+
+	// Find all header matches
+	matches := re.FindAllStringSubmatchIndex(markdown, -1)
+
+	// Split the Markdown into sections based on headers
+	var sections []map[string]string
+	for i, match := range matches {
+		headerLevel := len(markdown[match[2]:match[3]]) // Number of `#`
+		headerText := markdown[match[4]:match[5]]       // Header text
+
+		// Determine the start of the content (skip the header line)
+		start := match[1] + 1 // Start right after the header line
+		var end int
+		if i+1 < len(matches) {
+			end = matches[i+1][0]
+		} else {
+			end = len(markdown)
+		}
+		var content string
+		if start > end {
+			content = ""
+		} else {
+			content = strings.TrimSpace(markdown[start:end]) // Trim spaces from content
+		}
+		sections = append(sections, map[string]string{
+			"header_level": fmt.Sprintf("%d", headerLevel),
+			"header_text":  headerText,
+			"content":      content,
+		})
+	}
+
+	return sections
 }
 
 func newGithubClient(token string) *github.Client {
