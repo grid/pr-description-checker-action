@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	markdownCommentRegex = regexp.MustCompile(`\<\!\-\-\-.*\-\-\>`)
+	markdownCommentRegex = regexp.MustCompile(`<!--[\s\S]*?-->`)
 )
 
 type config struct {
@@ -68,11 +68,11 @@ func newGithubClient(token string) *github.Client {
 }
 
 func normalizeDescription(description string) string {
-	description = strings.Replace(description, "\r\n", "\n", -1)
-	description = markdownCommentRegex.ReplaceAllString(description, "")
-	description = strings.TrimSpace(description)
+	desc := strings.Replace(description, "\r\n", "\n", -1)
+	desc = markdownCommentRegex.ReplaceAllString(desc, "")
+	desc = strings.TrimSpace(desc)
 
-	return description
+	return desc
 }
 
 var cfg *config
