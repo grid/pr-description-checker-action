@@ -122,7 +122,8 @@ func main() {
 	template = normalizeDescription(template)
 
 	if err != nil {
-		githubactions.Infof("Failed to fetch template: %s, will continue without template", err)
+		githubactions.Errorf("Failed to fetch template: %s, will continue without template", err)
+		os.Exit(1)
 	}
 
 	githubClient := newGithubClient(cfg.githubToken)
@@ -148,8 +149,27 @@ func main() {
 	var errorMsg string
 	if len(description) == 0 {
 		errorMsg = cfg.commentEmptyDescription
-	} else if len(description) <= len(template) {
-		errorMsg = cfg.commentTemplateNotFilled
+	} else {
+		sections := splitByHeaders(description)
+		errorMsg = ""
+		for _, section := range sections {
+			githubactions.Infof("Validating section: %s", section["header_text"])
+			if strings.Contains(section["header_text"], "Change Management"){
+				if len(section["content"]) < 5 {
+					errorMsg += fmt.Sprintln("Change Management section doesn't seem subtantial.") 
+				}
+			} else if strings.Contains(section["header_text"], "See Also") {
+				if len(section["content"]) == 0 {
+					errorMsg += fmt.Sprintln("**See Also** section isn't filled")
+				} else {
+					linksRe := regexp.MustCompile(`\[[^\]]+\]\((https?://[^\)]+)\)`)
+					matches := linksRe.FindAllStringSubmatch(section["content"], -1)
+					if len(matches) == 0 {
+						errorMsg += fmt.Sprintln("**See Also** has no links")
+					}
+				}
+			}
+		}
 	}
 
 	if errorMsg != "" {
