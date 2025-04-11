@@ -187,7 +187,7 @@ func main() {
 			}
 		}
 
-		githubactions.Fatalf(errorMsg)
+		githubactions.Errorf(errorMsg)
 	}
 
 	githubactions.Infof("Description is valid")
