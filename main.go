@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"fmt"
 
 	"github.com/google/go-github/v42/github"
 	"github.com/sethvargo/go-githubactions"
@@ -13,7 +14,7 @@ import (
 )
 
 var (
-	markdownCommentRegex = regexp.MustCompile(`\<\!\-\-\-.*\-\-\>`)
+	markdownCommentRegex = regexp.MustCompile(`<!--[\s\S]*?-->`)
 )
 
 type config struct {
@@ -58,6 +59,43 @@ func fetchTemplate() (string, error) {
 	return string(data), nil
 }
 
+func splitByHeaders(markdown string) []map[string]string {
+	// Regular expression to match Markdown headers
+	re := regexp.MustCompile(`(?m)^(#{1,6}) (.+)$`)
+
+	// Find all header matches
+	matches := re.FindAllStringSubmatchIndex(markdown, -1)
+
+	// Split the Markdown into sections based on headers
+	var sections []map[string]string
+	for i, match := range matches {
+		headerLevel := len(markdown[match[2]:match[3]]) // Number of `#`
+		headerText := markdown[match[4]:match[5]]       // Header text
+
+		// Determine the start of the content (skip the header line)
+		start := match[1] + 1 // Start right after the header line
+		var end int
+		if i+1 < len(matches) {
+			end = matches[i+1][0]
+		} else {
+			end = len(markdown)
+		}
+		var content string
+		if start > end {
+			content = ""
+		} else {
+			content = strings.TrimSpace(markdown[start:end]) // Trim spaces from content
+		}
+		sections = append(sections, map[string]string{
+			"header_level": fmt.Sprintf("%d", headerLevel),
+			"header_text":  headerText,
+			"content":      content,
+		})
+	}
+
+	return sections
+}
+
 func newGithubClient(token string) *github.Client {
 	ctx := context.Background()
 
@@ -68,11 +106,11 @@ func newGithubClient(token string) *github.Client {
 }
 
 func normalizeDescription(description string) string {
-	description = strings.Replace(description, "\r\n", "\n", -1)
-	description = markdownCommentRegex.ReplaceAllString(description, "")
-	description = strings.TrimSpace(description)
+	desc := strings.Replace(description, "\r\n", "\n", -1)
+	desc = markdownCommentRegex.ReplaceAllString(desc, "")
+	desc = strings.TrimSpace(desc)
 
-	return description
+	return desc
 }
 
 var cfg *config
@@ -84,7 +122,8 @@ func main() {
 	template = normalizeDescription(template)
 
 	if err != nil {
-		githubactions.Infof("Failed to fetch template: %s, will continue without template", err)
+		githubactions.Errorf("Failed to fetch template: %s, will continue without template", err)
+		os.Exit(1)
 	}
 
 	githubClient := newGithubClient(cfg.githubToken)
@@ -110,8 +149,27 @@ func main() {
 	var errorMsg string
 	if len(description) == 0 {
 		errorMsg = cfg.commentEmptyDescription
-	} else if len(description) <= len(template) {
-		errorMsg = cfg.commentTemplateNotFilled
+	} else {
+		sections := splitByHeaders(description)
+		errorMsg = ""
+		for _, section := range sections {
+			githubactions.Infof("Validating section: %s", section["header_text"])
+			if strings.Contains(section["header_text"], "Change Management"){
+				if len(section["content"]) < 5 {
+					errorMsg += fmt.Sprintln("**Change Management** section doesn't seem subtantial.") 
+				}
+			} else if strings.Contains(section["header_text"], "See Also") {
+				if len(section["content"]) == 0 {
+					errorMsg += fmt.Sprintln("**See Also** section isn't filled")
+				} else {
+					linksRe := regexp.MustCompile(`\[[^\]]+\]\((https?://[^\)]+)\)`)
+					matches := linksRe.FindAllStringSubmatch(section["content"], -1)
+					if len(matches) == 0 {
+						errorMsg += fmt.Sprintln("**See Also** has no links")
+					}
+				}
+			}
+		}
 	}
 
 	if errorMsg != "" {
