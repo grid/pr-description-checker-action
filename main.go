@@ -156,7 +156,7 @@ func main() {
 			githubactions.Infof("Validating section: %s", section["header_text"])
 			if strings.Contains(section["header_text"], "Change Management"){
 				if len(section["content"]) < 5 {
-					errorMsg += fmt.Sprintln("Change Management section doesn't seem subtantial.") 
+					errorMsg += fmt.Sprintln("**Change Management** section doesn't seem subtantial.") 
 				}
 			} else if strings.Contains(section["header_text"], "See Also") {
 				if len(section["content"]) == 0 {
@@ -187,7 +187,7 @@ func main() {
 			}
 		}
 
-		githubactions.Errorf(errorMsg)
+		githubactions.Fatalf(errorMsg)
 	}
 
 	githubactions.Infof("Description is valid")

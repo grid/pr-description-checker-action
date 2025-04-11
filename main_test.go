@@ -22,14 +22,15 @@ var _ = Describe("Main", func() {
 					What does biz/ops need to know about this change? How will this impact customers or internal users? 
 					Are there any migrations or infrastructure changes required? -->
 					blah blah blah
-				## Engineering Details
+## Engineering Details
 					<!-- Engineering details and discussions in full glory. -->
-				## See Also
+## See Also
 					<!-- Related Github links, documentation, logs, Slack comments, etc. -->
 					<!-- Jira issue, e.g.: CRD-nnn -->`, 
 				`## Change Management
-					## Engineering Details
-					## See Also`),
+				blah blah blah
+## Engineering Details
+## See Also`),
 		)
 	})
 })
